@@ -2,6 +2,8 @@ import Html exposing (Html, button, div, text, input)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput, onDoubleClick)
 import Json.Decode as Decode
+import Json.Encode as Encode
+import Http exposing (Body, Request)
 
 main : Program Never Model Msg
 main =
@@ -30,10 +32,61 @@ model = Model
 
 -- UPDATE
 
+put : String -> Body -> Request ()
+put url body =
+  Http.request
+    { method = "PUT"
+    , headers = []
+    , url = url
+    , body = body
+    , expect = Http.expectStringResponse (\_ -> Ok ())
+    , timeout = Nothing
+    , withCredentials = False
+    }
+
+colorToJson : Color -> Encode.Value
+colorToJson color =
+  Encode.object 
+  [ ("red", Encode.int color.red)
+  , ("green", Encode.int color.green)
+  , ("blue", Encode.int color.blue)
+  ]
+
+idToJson : Id -> Encode.Value
+idToJson id =
+  Encode.object [ ("todoId", Encode.int id.todoId) ]
+
+todoToJson : TodoItem -> Encode.Value
+todoToJson todo = 
+  Encode.object 
+  [ ("name", Encode.string todo.name)
+  , ("id", idToJson todo.id)
+  , ("done", Encode.bool todo.done)
+  , ("color", colorToJson todo.color)
+  ]
+
+modelToJson : Model -> Encode.Value
+modelToJson model =
+  Encode.object
+    [ ("lastId", Encode.int model.lastId.todoId)
+    , ("colorPalette", Encode.list <| List.map colorToJson model.colorPalette)
+    , ("todos", Encode.list <| List.map todoToJson model.todos)
+    ]
+
+getJsonBody : Model -> Http.Body
+getJsonBody model =
+  Http.jsonBody (modelToJson model)
+
+save : Model -> Cmd Msg
+save model =
+  Http.send 
+    (\_ -> Error) 
+    (put "https://api.myjson.com/bins/z716h" (getJsonBody model))
+
 removeFromList : Int -> List a -> List a
 removeFromList i list =
   (List.take i list) ++ (List.drop (i+1) list) 
-
+  
 type Msg 
   = AddTodo 
   | RemoveTodo TodoItem
@@ -43,6 +96,8 @@ type Msg
   | RemoveFinished
   | SelectTodo (Maybe Id)
   | PickColor TodoItem Color
+  | Error
+  | NoOp
 
 colorToString : Color -> String
 colorToString color =
@@ -88,6 +143,9 @@ update msg model =
     PickColor todoItem color ->
       { model | todos = replaceById { todoItem | color = color } model.todos }
 
+    Error -> model
+
+    NoOp -> model
 
 -- VIEW
 
@@ -98,8 +156,8 @@ onEvent eventName callback =
     { stopPropagation = True, preventDefault = True } 
     (Decode.succeed callback)
 
-colorBox : Color -> a -> Html a
-colorBox color click =
+colorBoxView : Color -> a -> Html a
+colorBoxView color click =
   div 
     [ style [ ("display", "inline-block"), ("backgroundColor", colorToString color), ("width", "20pt"), ("height", "20pt") ] 
     , onEvent "click" click
@@ -110,7 +168,7 @@ todoView : List Color -> Bool -> TodoItem -> Html Msg
 todoView colorPalette selected todoItem = 
   let todoBody =
     if selected then 
-      [ div [] <| List.map (\x -> colorBox x <| PickColor todoItem x) colorPalette ] 
+      [ div [] <| List.map (\x -> colorBoxView x <| PickColor todoItem x) colorPalette ] 
     else 
       []
   in
@@ -142,4 +200,5 @@ view model =
     ([ button [ onEvent "click" AddTodo ] [ text "+" ]
     , button [ onEvent "click" DoAll ] [ text "Finish All" ]
     , button [ onEvent "click" RemoveFinished, disabled (List.all (\x -> not x.done) model.todos) ] [ text "Remove finished"]
+    , button [ onEvent "click" NoOp ] [ text "Save" ]
     ] ++ (List.map (\x -> todoView model.colorPalette ((Maybe.Just x.id) == model.selectedTodo) x) model.todos))
