@@ -7,7 +7,12 @@ import Http exposing (Body, Request)
 
 main : Program Never Model Msg
 main =
-  Html.beginnerProgram { model = model, view = view, update = update }
+  Html.program 
+    { init = init
+    , view = view
+    , update = update
+    , subscriptions = subscriptions 
+    }
 
 
 -- MODEL
@@ -29,6 +34,15 @@ model = Model
   , Color 100 200 100
   , Color 100 100 200
   ]
+
+init =
+  (model, Cmd.none)
+
+-- SUBSCRIPTIONS
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+  Sub.none
 
 -- UPDATE
 
@@ -81,12 +95,20 @@ save : Model -> Cmd Msg
 save model =
   Http.send 
     (\_ -> Error) 
-    (put "https://api.myjson.com/bins/z716h" (getJsonBody model))
+    (put jsonStoreUrl (getJsonBody model))
+
+load : Request String
+load =
+  Http.getString jsonStoreUrl
+
+jsonStoreUrl : String
+jsonStoreUrl =
+  "https://jsonblob.com/api/jsonBlob/b3a57385-15a2-11e8-aee7-c3f47d915b35"
 
 removeFromList : Int -> List a -> List a
 removeFromList i list =
   (List.take i list) ++ (List.drop (i+1) list) 
-  
+
 type Msg 
   = AddTodo 
   | RemoveTodo TodoItem
@@ -97,7 +119,7 @@ type Msg
   | SelectTodo (Maybe Id)
   | PickColor TodoItem Color
   | Error
-  | NoOp
+  | Save
 
 colorToString : Color -> String
 colorToString color =
@@ -114,38 +136,38 @@ removeById : { b | id : a } -> List { b | id : a } -> List { b | id : a }
 removeById item list =
   List.filter (\x -> not (x.id == item.id)) list
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
     AddTodo ->
-      { model | 
+      ({ model | 
         todos = List.append model.todos [ (TodoItem "" model.lastId False (Color 255 255 255)) ], 
-        lastId = { todoId = model.lastId.todoId + 1 } }
+        lastId = { todoId = model.lastId.todoId + 1 } }, Cmd.none)
 
     RemoveTodo todoItem ->
-      { model | todos = removeById todoItem model.todos }
+      ({ model | todos = removeById todoItem model.todos }, Cmd.none)
 
     ToggleTodo todoItem ->
-      { model | todos = replaceById { todoItem | done = not todoItem.done } model.todos }
+      ({ model | todos = replaceById { todoItem | done = not todoItem.done } model.todos }, Cmd.none)
 
     DoAll ->
-      { model | todos = List.map (\x -> { x | done = True}) model.todos}
+      ({ model | todos = List.map (\x -> { x | done = True}) model.todos}, Cmd.none)
 
     SetTodoName todoItem newName ->
-      { model | todos = replaceById { todoItem | name = newName } model.todos}
+      ({ model | todos = replaceById { todoItem | name = newName } model.todos}, Cmd.none)
 
     RemoveFinished ->
-      { model | todos = List.filter (\x -> not x.done) model.todos}
+      ({ model | todos = List.filter (\x -> not x.done) model.todos}, Cmd.none)
 
     SelectTodo todoId ->
-      { model | selectedTodo = todoId }
+      ({ model | selectedTodo = todoId }, Cmd.none)
 
     PickColor todoItem color ->
-      { model | todos = replaceById { todoItem | color = color } model.todos }
+      ({ model | todos = replaceById { todoItem | color = color } model.todos }, Cmd.none)
 
-    Error -> model
+    Error -> (model, Cmd.none)
 
-    NoOp -> model
+    Save -> (model, save model)
 
 -- VIEW
 
@@ -200,5 +222,5 @@ view model =
     ([ button [ onEvent "click" AddTodo ] [ text "+" ]
     , button [ onEvent "click" DoAll ] [ text "Finish All" ]
     , button [ onEvent "click" RemoveFinished, disabled (List.all (\x -> not x.done) model.todos) ] [ text "Remove finished"]
-    , button [ onEvent "click" NoOp ] [ text "Save" ]
+    , button [ onEvent "click" Save ] [ text "Save" ]
     ] ++ (List.map (\x -> todoView model.colorPalette ((Maybe.Just x.id) == model.selectedTodo) x) model.todos))
