@@ -4,6 +4,7 @@ import Html.Events exposing (onClick, onInput, onDoubleClick)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Http exposing (Body, Request)
+import Models exposing (Model, TodoItem, Color, Id)
 
 main : Program Never Model Msg
 main =
@@ -17,10 +18,6 @@ main =
 
 -- MODEL
 
-type alias Id = { todoId: Int }
-type alias Color = { red: Int, green: Int, blue: Int }
-type alias TodoItem = { name: String, id: Id, done: Bool, color: Color }
-type alias Model = { todos: List TodoItem, selectedTodo: Maybe Id, lastId: Id, colorPalette: List Color }
 
 model : Model
 model = Model 
@@ -35,6 +32,7 @@ model = Model
   , Color 100 100 200
   ]
 
+init : ( Model, Cmd msg )
 init =
   (model, Cmd.none)
 
