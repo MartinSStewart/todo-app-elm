@@ -2,9 +2,9 @@ import Html exposing (Html, button, div, text, input)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput, onDoubleClick)
 import Json.Decode as Decode
-import Json.Encode as Encode
 import Http exposing (Body, Request)
 import Models exposing (Model, TodoItem, Color, Id)
+import JsonToElm exposing (..)
 
 main : Program Never Model Msg
 main =
@@ -56,38 +56,11 @@ put url body =
     , withCredentials = False
     }
 
-colorToJson : Color -> Encode.Value
-colorToJson color =
-  Encode.object 
-  [ ("red", Encode.int color.red)
-  , ("green", Encode.int color.green)
-  , ("blue", Encode.int color.blue)
-  ]
 
-idToJson : Id -> Encode.Value
-idToJson id =
-  Encode.object [ ("todoId", Encode.int id.todoId) ]
-
-todoToJson : TodoItem -> Encode.Value
-todoToJson todo = 
-  Encode.object 
-  [ ("name", Encode.string todo.name)
-  , ("id", idToJson todo.id)
-  , ("done", Encode.bool todo.done)
-  , ("color", colorToJson todo.color)
-  ]
-
-modelToJson : Model -> Encode.Value
-modelToJson model =
-  Encode.object
-    [ ("lastId", Encode.int model.lastId.todoId)
-    , ("colorPalette", Encode.list <| List.map colorToJson model.colorPalette)
-    , ("todos", Encode.list <| List.map todoToJson model.todos)
-    ]
 
 getJsonBody : Model -> Http.Body
 getJsonBody model =
-  Http.jsonBody (modelToJson model)
+  Http.jsonBody (encodeModel model)
 
 save : Model -> Cmd Msg
 save model =
@@ -95,9 +68,11 @@ save model =
     (\_ -> Error) 
     (put jsonStoreUrl (getJsonBody model))
 
-load : Request String
+load : Cmd Msg
 load =
-  Http.getString jsonStoreUrl
+  Http.send 
+    (\_ -> Error) 
+    <| Http.get jsonStoreUrl decodeModel
 
 jsonStoreUrl : String
 jsonStoreUrl =
@@ -118,6 +93,7 @@ type Msg
   | PickColor TodoItem Color
   | Error
   | Save
+  | Load
 
 colorToString : Color -> String
 colorToString color =
@@ -166,6 +142,8 @@ update msg model =
     Error -> (model, Cmd.none)
 
     Save -> (model, save model)
+
+    Load -> (model, Cmd.none)
 
 -- VIEW
 

@@ -1,7 +1,8 @@
-import Models exposing (..)
+module JsonToElm exposing (..)
+
+import Json.Decode exposing (int, string, float, Decoder, nullable, field)
 import Json.Encode exposing (..)
-import Json.Encode.Extra exposing (..)
-import Json.Decode exposing (..)
+import Models exposing (..)
 
 decodeId : Json.Decode.Decoder Id
 decodeId =
@@ -49,16 +50,22 @@ encodeTodoItem record =
 decodeModel : Json.Decode.Decoder Model
 decodeModel =
     Json.Decode.map4 Model
-        (field "todos" (Json.Decode.list decodeTodoItem))
-        (field "selectedTodo" (Json.Decode.maybe decodeId))
+        (field "todos" <| Json.Decode.list decodeTodoItem)
+        (field "selectedTodo" <| Json.Decode.maybe decodeId)
         (field "lastId" decodeId)
-        (field "colorPalette" (Json.Decode.list decodeColor))
+        (field "colorPalette" <| Json.Decode.list decodeColor)
 
--- encodeModel : Model -> Json.Encode.Value
--- encodeModel record =
---     Json.Encode.object
---         [ ("todos",  Json.Encode.list <| List.map encodeTodoItem <| record.todos)
---         , ("selectedTodo",  Json.Encode.maybe record.selectedTodo)
---         , ("lastId",  encodeId <| record.lastId)
---         , ("colorPalette",  Json.Encode.list <| List.map encodeColor <| record.colorPalette)
---         ]
+encodeModel : Model -> Json.Encode.Value
+encodeModel record =
+    Json.Encode.object
+        [ ("todos",  Json.Encode.list <| List.map encodeTodoItem <| record.todos)
+        , ("selectedTodo", encodeMaybe encodeId record.selectedTodo)
+        , ("lastId",  encodeId <| record.lastId)
+        , ("colorPalette",  Json.Encode.list <| List.map encodeColor <| record.colorPalette)
+        ]
+
+encodeMaybe : (a -> Value) -> Maybe a -> Value
+encodeMaybe encoder maybe =
+  case maybe of 
+    Just value -> encoder value
+    Nothing -> Json.Encode.null

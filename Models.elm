@@ -1,5 +1,4 @@
 module Models exposing (..)
-import Json.Decode
 
 type alias Id = { todoId: Int }
 type alias Color = { red: Int, green: Int, blue: Int }
