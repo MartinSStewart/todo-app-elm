@@ -1,19 +1,25 @@
 module JsonToElm exposing (..)
 
-import Json.Decode exposing (int, string, float, Decoder, nullable, field)
+import Json.Decode exposing (int, string, float, Decoder, nullable, field, andThen, fail, succeed)
 import Json.Encode exposing (..)
 import Models exposing (..)
 
-decodeId : Json.Decode.Decoder Id
-decodeId =
-    Json.Decode.map Id
-        (field "todoId" Json.Decode.int)
+encodeId : TodoId -> Value
+encodeId id =
+  Json.Encode.int <| case id of TId value -> value
 
-encodeId : Id -> Json.Encode.Value
-encodeId record =
-    Json.Encode.object
-        [ ("todoId",  Json.Encode.int <| record.todoId)
-        ]
+decodeId : Decoder TodoId
+decodeId =
+  let 
+    convert : String -> Decoder TodoId
+    convert raw = 
+      case String.toInt raw of
+        Ok value -> succeed (TId value)
+
+        Err error -> fail error
+  in
+  Json.Decode.string |> andThen convert
+
 
 decodeColor : Json.Decode.Decoder Color
 decodeColor =
@@ -42,7 +48,7 @@ encodeTodoItem : TodoItem -> Json.Encode.Value
 encodeTodoItem record =
     Json.Encode.object
         [ ("name",  Json.Encode.string <| record.name)
-        , ("id",  encodeId <| record.id)
+        , ("id",  encodeId record.id)
         , ("done",  Json.Encode.bool <| record.done)
         , ("color",  encodeColor <| record.color)
         ]
@@ -51,8 +57,8 @@ decodeModel : Json.Decode.Decoder Model
 decodeModel =
     Json.Decode.map4 Model
         (field "todos" <| Json.Decode.list decodeTodoItem)
-        (field "selectedTodo" <| Json.Decode.maybe decodeId)
-        (field "lastId" decodeId)
+        (field "selectedTodo" (Json.Decode.maybe decodeId))
+        (field "lastId" Json.Decode.int)
         (field "colorPalette" <| Json.Decode.list decodeColor)
 
 encodeModel : Model -> Json.Encode.Value
@@ -60,7 +66,7 @@ encodeModel record =
     Json.Encode.object
         [ ("todos",  Json.Encode.list <| List.map encodeTodoItem <| record.todos)
         , ("selectedTodo", encodeMaybe encodeId record.selectedTodo)
-        , ("lastId",  encodeId <| record.lastId)
+        , ("lastId",  Json.Encode.int record.lastId)
         , ("colorPalette",  Json.Encode.list <| List.map encodeColor <| record.colorPalette)
         ]
 

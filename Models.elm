@@ -1,6 +1,6 @@
 module Models exposing (..)
 
-type alias Id = { todoId: Int }
+type TodoId = TId Int
 type alias Color = { red: Int, green: Int, blue: Int }
-type alias TodoItem = { name: String, id: Id, done: Bool, color: Color }
-type alias Model = { todos: List TodoItem, selectedTodo: Maybe Id, lastId: Id, colorPalette: List Color }
+type alias TodoItem = { name: String, id: TodoId, done: Bool, color: Color }
+type alias Model = { todos: List TodoItem, selectedTodo: Maybe TodoId, lastId: Int, colorPalette: List Color }

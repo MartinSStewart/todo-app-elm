@@ -3,7 +3,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput, onDoubleClick)
 import Json.Decode as Decode
 import Http exposing (Body, Request)
-import Models exposing (Model, TodoItem, Color, Id)
+import Models exposing (..)
 import JsonToElm exposing (..)
 
 main : Program Never Model Msg
@@ -18,12 +18,11 @@ main =
 
 -- MODEL
 
-
 model : Model
-model = Model 
+model = Model
   [] 
   Maybe.Nothing 
-  (Id 0) 
+  0 
   [ Color 255 255 255
   , Color 200 200 200
   , Color 100 100 100
@@ -32,9 +31,8 @@ model = Model
   , Color 100 100 200
   ]
 
-init : ( Model, Cmd msg )
-init =
-  (model, Cmd.none)
+init : ( Model, Cmd Msg )
+init = (model, load)
 
 -- SUBSCRIPTIONS
 
@@ -56,8 +54,6 @@ put url body =
     , withCredentials = False
     }
 
-
-
 getJsonBody : Model -> Http.Body
 getJsonBody model =
   Http.jsonBody (encodeModel model)
@@ -72,7 +68,7 @@ load : Cmd Msg
 load =
   Http.send 
     (\_ -> Error) 
-    <| Http.get jsonStoreUrl decodeModel
+    (Http.get jsonStoreUrl decodeModel)
 
 jsonStoreUrl : String
 jsonStoreUrl =
@@ -89,7 +85,7 @@ type Msg
   | DoAll
   | SetTodoName TodoItem String
   | RemoveFinished
-  | SelectTodo (Maybe Id)
+  | SelectTodo (Maybe TodoId)
   | PickColor TodoItem Color
   | Error
   | Save
@@ -115,8 +111,8 @@ update msg model =
   case msg of
     AddTodo ->
       ({ model | 
-        todos = List.append model.todos [ (TodoItem "" model.lastId False (Color 255 255 255)) ], 
-        lastId = { todoId = model.lastId.todoId + 1 } }, Cmd.none)
+        todos = List.append model.todos [ (TodoItem "" (TId model.lastId) False (Color 255 255 255)) ], 
+        lastId = model.lastId + 1 }, Cmd.none)
 
     RemoveTodo todoItem ->
       ({ model | todos = removeById todoItem model.todos }, Cmd.none)
@@ -143,7 +139,7 @@ update msg model =
 
     Save -> (model, save model)
 
-    Load -> (model, Cmd.none)
+    Load -> (model, load)
 
 -- VIEW
 
@@ -199,4 +195,5 @@ view model =
     , button [ onEvent "click" DoAll ] [ text "Finish All" ]
     , button [ onEvent "click" RemoveFinished, disabled (List.all (\x -> not x.done) model.todos) ] [ text "Remove finished"]
     , button [ onEvent "click" Save ] [ text "Save" ]
+    , button [ onEvent "click" Load ] [ text "Load" ]
     ] ++ (List.map (\x -> todoView model.colorPalette ((Maybe.Just x.id) == model.selectedTodo) x) model.todos))
